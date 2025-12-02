@@ -25,4 +25,5 @@ ft_is_negative (37);
 ft_putchar ('/n');
 ft_is_negative (0);
 ft_putchar ('/n');
+return 0;
 }
