@@ -1,0 +1,61 @@
+#!/bin/bash
+
+LOCK_FILE="/tmp/screen_faker.pid"
+TIMER_FILE="/tmp/screen_faker_timer.pid"
+HOURS=2
+
+cancel_previous_sleep() {
+    if [ -f "$LOCK_FILE" ]; then
+        OLD_PID=$(cat "$LOCK_FILE")
+        if kill -0 "$OLD_PID" 2>/dev/null; then
+            kill "$OLD_PID"
+        fi
+        rm -f "$LOCK_FILE"
+    fi
+}
+
+start_logout_timer() {
+    # Kill any existing timer
+    if [ -f "$TIMER_FILE" ]; then
+        OLD_TIMER=$(cat "$TIMER_FILE")
+        if kill -0 "$OLD_TIMER" 2>/dev/null; then
+            kill "$OLD_TIMER"
+        fi
+        rm -f "$TIMER_FILE"
+    fi
+
+    # Start new timer in background
+    ( sleep $(( HOURS * 3600 )) && gnome-session-quit --no-prompt ) &
+    echo $! > "$TIMER_FILE"
+}
+
+cancel_logout_timer() {
+    if [ -f "$TIMER_FILE" ]; then
+        OLD_TIMER=$(cat "$TIMER_FILE")
+        if kill -0 "$OLD_TIMER" 2>/dev/null; then
+            kill "$OLD_TIMER"
+        fi
+        rm -f "$TIMER_FILE"
+    fi
+}
+
+FETCH=$(xrandr --verbose | grep Brightness)
+
+if grep -q "0.0" <<< "$FETCH"; then
+    # Currently dimmed → restore brightness
+    cancel_previous_sleep
+    cancel_logout_timer
+    notify-send "Screen Faker" "Screen unlocked"
+    xrandr --output eDP --brightness 1
+else
+    # Currently bright → dim after delay
+    cancel_previous_sleep
+
+    notify-send "Screen Faker" "Faking in 3 seconds... (logout in ${HOURS}h)"
+
+    # Run sleep in background, save its PID
+    ( sleep 3 && xrandr --output eDP --brightness 0 ) &
+    echo $! > "$LOCK_FILE"
+
+    start_logout_timer
+fi
